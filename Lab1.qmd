@@ -1,0 +1,152 @@
+---
+title: "Lab 1 - ESM 244: Trees in San Francisco"
+author: "Sofia Urgoiti Crespo"
+format: 
+  html:
+    code-fold: true
+    toc: true
+execute:
+  echo: true
+  message: false
+  warning: false
+editor: visual
+---
+
+### Quarto Formatting
+
+* Set it up like this every time when you do your assignments!
+- Tip: Editor: visual (does the formatting of headers and links)
+#When you hit Render: It outputs an html!
+- General Formatting
+Code folding:
+Tab in 2 spaces before html
+toc = table of contents! 
+When you run this we are going to use code folding & throw in a table of contents
+#Echo: print all code on report when echo = TRUE
+
+
+```{r setup}
+library(tidyverse)
+library(here)
+library(sf)
+library(tmap)
+library(ggplot2)
+```
+
+#Shortcuts to running code:
+- green button
+- control + shift + return (if your pointer is inside chunk)
+
+# Trees in San Francisco
+
+```{r load data}
+here()
+
+sfo_trees_df = read_csv(here("data", "sfo_trees", "sfo_trees.csv")) %>%
+#read_csv is part of tidyverse while read.csv is base R
+janitor::clean_names() #standardize format of column names
+  
+```
+
+# Part 1: Review - Data Exploration & Wrangling
+
+## Example 1: 
+
+Find counts of observations by legal status, then select the statuses with the 5 highest tree counts. 
+
+```{r}
+sfo_trees_df %>%
+  filter(!is.na(legal_status)) %>%
+  group_by(legal_status) %>%
+  summarize(tree_count = n()) 
+
+top_5_status = sfo_trees_df %>%
+  filter(!is.na(legal_status)) %>%
+  group_by(legal_status) %>%
+  summarize(tree_count = n()) %>%
+  ungroup() %>% #It's nice to do this after grouping!
+  slice_max(tree_count, n = 5)
+
+```
+
+
+Make a ggplot of the top 5 observations from above:
+
+```{r}
+
+ggplot(top_5_status, 
+       aes(x = tree_count, 
+           y = fct_reorder(legal_status, tree_count)),
+       fill = legal_status) + #turn legal_status into categorical & reorder by tree count instead of alphabetical
+  geom_col() +
+  theme_minimal() +
+  labs(x = "Tree Count", 
+       y = "Legal Status")
+  
+
+```
+
+
+
+## Example 2:
+
+Only keep observations where legal status is "Permitted Site" and caretaker is "MTA" or "DPW". Store as "permitted_mta_dpw"
+
+```{r}
+permitted_mta_dpw = sfo_trees_df %>%
+  filter(legal_status == "Permitted Site" & caretaker == c("MTA", "DPW"))
+
+```
+
+## Example 3:
+
+```{r}
+
+oak_pine_df = sfo_trees_df %>%
+  filter(str_detect(species, "Oak") |
+           str_detect(species, "Pine")) %>% #one trick with text data, turn them on into lowercase so you don't have to worry about capitalization
+  select(species, legal_status, plant_date, latitude, longitude) %>%
+  mutate(type = ifelse(str_detect(species, "Oak"), "Oak", "Pine"))
+
+```
+
+
+```{r}
+ggplot(oak_pine_df, aes(x=longitude, y=latitude, color = type)) +
+  geom_point() +
+  theme_minimal() + 
+  theme(axis.title = element_blank()) +
+  labs(color = "Tree Type",
+       caption = "Location of oaks and pines in San Francisco")
+```
+
+## Example 4
+
+Load a list of CA native species
+
+```{r}
+ca_native_df = read_csv(here("data/sfo_trees/ca_native_spp.csv"))
+```
+
+Add a column noting whether a tree is native or not - we'll need the common & scientific names
+
+```{r}
+sfo_trees_native = sfo_trees_df %>%
+  separate(species, into = c("spp_sci", "spp_common"), sep = ' :: ') %>%
+#some rows it did not have enough information so it added some NAs
+  select(starts_with("spp"), "plant_date", "legal_status", "longitude", "latitude") %>%
+  mutate(ca_native = spp_sci %in% ca_native_df$scientific_name) #check that 2 columns in 2 different df match! It says TRUE or FALSE: whether that particular tree is native or not
+
+sfo_native_status = sfo_trees_native %>%
+  group_by(legal_status, ca_native) %>%
+  summarize(n_trees = n(), 
+            n_species = n_distinct(spp_sci)) #how many unique species names are there rather than tree observations!
+
+```
+
+
+```{r}
+
+```
+
+
