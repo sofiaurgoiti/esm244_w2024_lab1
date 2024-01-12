@@ -1,0 +1,52 @@
+---
+title: "Gapmindr Analysis"
+author: "Sofia Urgoiti Crespo"
+format: 
+  html:
+    code-fold: true
+    toc: true
+execute:
+  echo: true
+  message: false
+  warning: false
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+library(gapminder)
+```
+
+
+1. For each year and continent, summarize average per capita GDP across all countries in the continent. Hint: don't just average country-level values - need to consider country populations!
+
+```{r}
+gapminder
+
+summary_gapminder = gapminder %>%
+  group_by(continent, year) %>%
+  summarize(mean_gdp = mean(gdpPercap)) %>%
+  ungroup()
+```
+
+
+2. Plot continent-level GDP values in scatterplot. Bonus, plot the country level values as well with a low alpha to fade them into the background.
+
+```{r}
+ggplot(summary_gapminder, aes(x = continent, y = mean(gdpPercap))) +
+         geom_point()
+       
+```
+
+
+3. Redo the scatterplot but this time log transform the GDP data (in df use mutate or on the plot scale_ly_log10)
+
+
+
+4. Based on the plots choose either regular or log transformed data and use a linear regression to estimate annual change in per capita GDP ** or lof(percapitaGDP) accounting for continent.
+
+
+
+
+
+
