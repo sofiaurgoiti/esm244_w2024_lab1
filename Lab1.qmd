@@ -145,8 +145,139 @@ sfo_native_status = sfo_trees_native %>%
 ```
 
 
-```{r}
+# Part 2: Analysis and quickie maps
 
+Considering only Coast Live Oak and Monterey Pine, have tree planting preferences changed over time?
+
+## Wrangling
+
+Create a new dataframe that contains only Coast Live Oak and Monterey Pine observations (NOT all oaks and pines!), and include information on year and location. Call this `oak_pine_year_df`.
+
+Then, determine whether there is a difference in when the trees have been planted.
+
+### Pseudocode
+
+### Functional Code
+
+Note, here we need to use `lubridate::year()` to extract the year info from the `Date` info. We will do a lot more with `Date`-formatted data when we look at time series!
+
+```{r part 2 analysis}
+
+oak_pine_year_df <- sfo_trees_native %>% 
+  filter(spp_sci %in% c('Quercus agrifolia', 'Pinus radiata')) %>%
+  mutate(plant_year = year(plant_date))
+
+t.test(plant_year ~ spp_sci, data = oak_pine_year_df)
+
+ggplot(oak_pine_year_df) +
+  geom_histogram(aes(x = plant_year), bins = 10) +
+  facet_wrap(~ spp_sci, ncol = 1) +
+  theme_minimal()
+
+ggplot(oak_pine_year_df) +
+  geom_point(aes(x = longitude, y = latitude, color = plant_year, shape = spp_sci))
 ```
 
+## Creating a spatial map
+
+You need `sf` ("Simple Features" geometry package) and `tmap` successfully attached to do this part. We'll convert lat/lon to spatial data (see that now there's a column called `geometry`), then we can use `geom_sf()` to plot. Here we are just touching on working with spatial data in R, and will explore this more in the coming weeks.
+
+### Step 1: Convert the lat/lon to spatial points
+
+Use `st_as_sf()` to convert to spatial coordinates (`_sf` suffix to remember that this is a simple features object; `sfo_` prefix here still means San Francisco!):
+
+```{r map of sf oaks and pines}
+oak_pine_sf <- oak_pine_year_df %>% 
+  drop_na(longitude, latitude) %>% 
+  st_as_sf(coords = c("longitude", "latitude")) # Convert to spatial coordinates
+
+# But we need to set the coordinate reference system (CRS) so it's compatible with the street map of San Francisco we'll use as a "base layer":
+st_crs(oak_pine_sf) <- 4326
+
+# Then we can use `geom_sf`!
+
+ggplot(data = oak_pine_sf) +
+  geom_sf(aes(color = spp_sci)) +
+  theme_minimal()
+  
+```
+
+But that's not especially useful unless we have an actual map of SF to plot this on, right?
+
+### Step 2: read in San Francisco road map
+
+Read in the SF shapefile (data/sfo_map/tl_2017_06075_roads.shp):
+
+```{r}
+sfo_map <- read_sf(here("data", "sfo_map", "tl_2017_06075_roads.shp"))
+
+st_transform(sfo_map, 4326)
+
+ggplot(data = sfo_map) +
+  geom_sf()
+```
+
+Now combine them:
+
+```{r}
+ggplot() +
+  geom_sf(data = sfo_map,
+          size = 0.1,
+          color = "darkgray") +
+  geom_sf(data = oak_pine_sf, 
+          aes(color = spp_sci),
+          size = 0.5) +
+  theme_void() +
+  labs(title = "Oaks and pines in San Francisco")
+```
+
+### Step 3: Now make it interactive!
+
+```{r}
+tmap_mode("view")
+
+tm_shape(oak_pine_sf) + 
+  tm_dots(col = 'spp_sci')
+```
+
+## Wrap up part 2
+
+Make sure you render, stage, commit, pull, then push back to GitHub. Done!
+
+------------------------------------------------------------------------
+
+# Post-Lab Practice
+
+Create a new repository in your GitHub account. Clone this into R Studio (no need to fork, it's already in your account).
+
+In this new repository, create a new Quarto document and set it up:
+
+-   Code folding (either `true` (fold, but hide it) or `show` (fold, but show it))
+-   Echo code to the document, but suppress warnings and messages
+
+Delete the template text, and create a new code chunk. Attach the `tidyverse` package. Attach the `gapminder` package (install it if you need to!).
+
+## Analysis part 1:
+
+-   For each year, and for each continent, summarize the average per-capita GDP across all countries in the continent (hint: don't just average the country-level `gdpPercap` values!).
+    -   Plot these in a scatter plot.\
+    -   (Bonus, plot the country-level values as well, with a low alpha to fade them into the background)
+    -   Redo your scatter plot, but with a log transform on the per-capita GDP (either transform in the dataframe using `mutate`, or on the plot using `scale_y_log10()`)
+
+## Analysis part 2:
+
+Based on the plots, choose either the log-transformed or non-transformed data for the next part.
+
+-   On the original Gapminder data (not your summarized data), use linear regression to estimate the annual change in per capita GDP **OR** log(per capita GDP), accounting for continent.
+
+## Followup questions:
+
+-   Write a sentence or two describing the trends you see in the plots. Which model (log or not) did you choose and why?
+-   Write a sentence or two to explain the coefficients on your linear model output, including statistical significance.
+    -   Which continent is the "reference" continent?
+    -   What does the "year" coefficient represent? hint: this is trickier if you went with the log-transformed model!
+    -   What do the coefficients on each continent represent? Do these make intuitive sense?
+-   Does a linear model seem like a good way to approach these data? Why or why not?
+
+Render your Quarto document, and then stage, commit, and push back to your Github repository. Make sure the updates are reflected online!
 
